@@ -68,7 +68,7 @@ export const PRODUCT_CONFIG = {
   confidence: {
     curiousBaseline: 0.34,
     curiousBridge: 0.3,
-    guardCommit: 0.72,
+    guardCommit: 0.66,
     guardImmediate: 0.86,
     guardExtreme: 0.94,
     watchCarry: 0.48,

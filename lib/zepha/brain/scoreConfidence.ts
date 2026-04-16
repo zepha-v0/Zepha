@@ -20,7 +20,7 @@ export function scoreZephaConfidence(
 ): ZephaConfidence {
   let sleep = 0;
   let idle = 0.4;
-  let curious = 0.31;
+  let curious = 0.28;
   let guard = 0;
   let watch = 0;
   let offer = 0;
@@ -36,21 +36,21 @@ export function scoreZephaConfidence(
 
   if (context.activityLevel === 'still') {
     idle += 0.2;
-    curious += 0.07;
+    curious += 0.05;
   }
 
   if (context.activityLevel === 'light') {
     idle += 0.08;
-    curious += 0.36;
+    curious += 0.32;
   }
 
   if (context.activityLevel === 'active') {
-    curious += 0.34;
+    curious += 0.28;
     watch += 0.05;
   }
 
   if (context.inactivityMs > CURIOUS_TRIGGER_MS && context.inactivityMs < LONG_INACTIVITY_MS) {
-    curious += 0.26;
+    curious += 0.24;
   }
 
   if (signals.firstRunLearningMode) {
@@ -64,18 +64,23 @@ export function scoreZephaConfidence(
   }
 
   if (context.workIntentActive) {
-    guard += 0.2;
-    curious += 0.1;
-    idle -= 0.04;
+    guard += 0.34;
+    curious += 0.04;
+    idle -= 0.08;
   }
 
   if (context.guardIntentActive) {
-    guard += 0.16;
-    curious += 0.1;
-    watch += 0.04;
+    guard += 0.24;
+    curious += 0.02;
   }
 
-  if (signals.manualUrgency) {
+  if (signals.focusMode && signals.manualWorkIntent) {
+    guard += 0.14;
+  } else if (signals.focusMode || signals.manualWorkIntent) {
+    guard += 0.08;
+  }
+
+  if (signals.manualGuard) {
     guard += 0.26;
   }
 
@@ -86,9 +91,10 @@ export function scoreZephaConfidence(
   }
 
   if (signals.relevantPrepExists) offer += 0.3;
+  if (signals.meetingSoon && signals.relevantPrepExists) offer += 0.12;
   if (context.shouldDecompress) {
     watch += 0.3;
-    curious += 0.08;
+    curious += 0.04;
   }
 
   const recentGuardStrength = minutesAgo(signals.now, memory.recentGuardAt, 10);
@@ -105,7 +111,7 @@ export function scoreZephaConfidence(
   offer += memory.offerPrepBias * 0.24;
   curious += recentCuriousStrength * 0.16;
 
-  if (context.workIntentActive) guard += recentWorkIntentStrength * 0.12;
+  if (context.workIntentActive) guard += recentWorkIntentStrength * 0.16;
   if (context.guardIntentActive) guard += recentUrgencyStrength * 0.14;
   if (!context.guardIntentActive && recentGuardStrength > 0) {
     watch += recentGuardStrength * 0.22;
@@ -118,11 +124,11 @@ export function scoreZephaConfidence(
   if (recentIdleStrength > 0 && context.activityLevel === 'still') idle += recentIdleStrength * 0.14;
   if (recentOfferStrength > 0 && context.offerIntentActive) offer += recentOfferStrength * 0.12;
 
-  if (memory.guardWins >= 2 && context.workIntentActive) guard += 0.05;
+  if (memory.guardWins >= 2 && context.workIntentActive) guard += 0.08;
   if (memory.idleWins >= 2 && context.activityLevel === 'still') idle += 0.08;
   if (memory.watchWins >= 2 && context.shouldDecompress) {
     watch += 0.05;
-    curious += 0.05;
+    curious += 0.03;
   }
   if (memory.curiousWins >= 2 && !context.guardIntentActive) curious += 0.06;
 

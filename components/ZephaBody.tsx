@@ -1,4 +1,5 @@
-import { Animated, Pressable, StyleSheet, Text } from 'react-native';
+import { useEffect, useRef } from 'react';
+import { Animated, Easing, Pressable, StyleSheet, Text } from 'react-native';
 
 import { STATE_CONFIG, ZEPHA_SIZE } from '@/lib/zepha/config';
 import { STATES } from '@/lib/zepha/states';
@@ -8,9 +9,18 @@ export function ZephaBody(props: {
   motion: ZephaBodyMotion;
   trueState: ZephaState;
   brainReason: string;
+  glyphSignal: {
+    id: string;
+    symbol: string;
+    variant: 'curious' | 'watch' | 'guard' | 'offer';
+  } | null;
   onPress: () => void;
 }) {
-  const { motion, trueState, brainReason, onPress } = props;
+  const { motion, trueState, brainReason, glyphSignal, onPress } = props;
+  const glyphOpacity = useRef(new Animated.Value(0)).current;
+  const glyphScale = useRef(new Animated.Value(0.96)).current;
+  const glyphRise = useRef(new Animated.Value(6)).current;
+  const glyphWiggle = useRef(new Animated.Value(0)).current;
 
   const silkHeight = Animated.subtract(motion.posY, motion.topWallY + 40);
   const zephaTranslateX =
@@ -19,6 +29,139 @@ export function ZephaBody(props: {
       : motion.visibleState === STATES.CURIOUS
         ? Animated.add(motion.posX, motion.curiousNudge)
         : motion.posX;
+  const glyphTranslateX = Animated.add(zephaTranslateX, 30);
+  const glyphTranslateY = Animated.add(
+    Animated.add(motion.posY, motion.idleFloat),
+    -6
+  );
+
+  useEffect(() => {
+    glyphOpacity.stopAnimation();
+    glyphScale.stopAnimation();
+    glyphRise.stopAnimation();
+    glyphWiggle.stopAnimation();
+
+    if (!glyphSignal) {
+      Animated.parallel([
+        Animated.timing(glyphOpacity, {
+          toValue: 0,
+          duration: 160,
+          easing: Easing.out(Easing.quad),
+          useNativeDriver: true,
+        }),
+        Animated.timing(glyphRise, {
+          toValue: 8,
+          duration: 180,
+          easing: Easing.out(Easing.quad),
+          useNativeDriver: true,
+        }),
+      ]).start();
+      return;
+    }
+
+    glyphOpacity.setValue(0);
+    glyphScale.setValue(glyphSignal.variant === 'guard' ? 0.98 : 0.96);
+    glyphRise.setValue(6);
+    glyphWiggle.setValue(0);
+
+    const entry = Animated.parallel([
+      Animated.timing(glyphOpacity, {
+        toValue: glyphSignal.variant === 'guard' ? 0.92 : 0.84,
+        duration: 180,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+      Animated.timing(glyphScale, {
+        toValue: glyphSignal.variant === 'guard' ? 1.02 : 1,
+        duration: glyphSignal.variant === 'guard' ? 180 : 220,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+      Animated.timing(glyphRise, {
+        toValue: 0,
+        duration: 240,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+    ]);
+
+    let accent: Animated.CompositeAnimation;
+    if (glyphSignal.variant === 'curious') {
+      accent = Animated.sequence([
+        Animated.timing(glyphWiggle, {
+          toValue: 2,
+          duration: 120,
+          easing: Easing.inOut(Easing.quad),
+          useNativeDriver: true,
+        }),
+        Animated.timing(glyphWiggle, {
+          toValue: -2,
+          duration: 160,
+          easing: Easing.inOut(Easing.quad),
+          useNativeDriver: true,
+        }),
+        Animated.timing(glyphWiggle, {
+          toValue: 0,
+          duration: 120,
+          easing: Easing.out(Easing.quad),
+          useNativeDriver: true,
+        }),
+      ]);
+    } else if (glyphSignal.variant === 'watch') {
+      accent = Animated.sequence([
+        Animated.timing(glyphScale, {
+          toValue: 1.03,
+          duration: 180,
+          easing: Easing.inOut(Easing.quad),
+          useNativeDriver: true,
+        }),
+        Animated.timing(glyphScale, {
+          toValue: 1,
+          duration: 220,
+          easing: Easing.out(Easing.quad),
+          useNativeDriver: true,
+        }),
+      ]);
+    } else if (glyphSignal.variant === 'guard') {
+      accent = Animated.sequence([
+        Animated.timing(glyphScale, {
+          toValue: 1.05,
+          duration: 120,
+          easing: Easing.out(Easing.quad),
+          useNativeDriver: true,
+        }),
+        Animated.timing(glyphScale, {
+          toValue: 1.01,
+          duration: 180,
+          easing: Easing.out(Easing.quad),
+          useNativeDriver: true,
+        }),
+      ]);
+    } else {
+      accent = Animated.sequence([
+        Animated.timing(glyphRise, {
+          toValue: -2,
+          duration: 220,
+          easing: Easing.inOut(Easing.quad),
+          useNativeDriver: true,
+        }),
+        Animated.timing(glyphRise, {
+          toValue: 0,
+          duration: 220,
+          easing: Easing.out(Easing.quad),
+          useNativeDriver: true,
+        }),
+      ]);
+    }
+
+    Animated.sequence([entry, accent]).start();
+  }, [
+    glyphOpacity,
+    glyphRise,
+    glyphScale,
+    glyphSignal,
+    glyphWiggle,
+  ]);
 
   return (
     <>
@@ -79,6 +222,38 @@ export function ZephaBody(props: {
         </Animated.View>
       )}
 
+      {glyphSignal && (
+        <Animated.View
+          pointerEvents="none"
+          style={[
+            styles.glyphWrap,
+            {
+              opacity: glyphOpacity,
+              transform: [
+                { translateX: Animated.add(glyphTranslateX, glyphWiggle) },
+                { translateY: Animated.add(glyphTranslateY, glyphRise) },
+                { scale: glyphScale },
+              ],
+            },
+          ]}
+        >
+          <Text
+            style={[
+              styles.glyphText,
+              glyphSignal.variant === 'guard'
+                ? styles.guardGlyph
+                : glyphSignal.variant === 'offer'
+                  ? styles.offerGlyph
+                  : glyphSignal.variant === 'watch'
+                    ? styles.watchGlyph
+                    : styles.curiousGlyph,
+            ]}
+          >
+            {glyphSignal.symbol}
+          </Text>
+        </Animated.View>
+      )}
+
       <Animated.View
         style={[
           styles.zepha,
@@ -117,6 +292,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 0,
     top: 0,
+    zIndex: 3,
   },
   spider: {
     fontSize: ZEPHA_SIZE,
@@ -133,6 +309,7 @@ const styles = StyleSheet.create({
   },
   sleepWeb: {
     position: 'absolute',
+    zIndex: 1,
   },
   sleepWebText: {
     color: '#93c5fd',
@@ -144,5 +321,38 @@ const styles = StyleSheet.create({
     width: 1.5,
     backgroundColor: 'rgba(200, 220, 255, 0.55)',
     borderRadius: 999,
+    zIndex: 2,
+  },
+  glyphWrap: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    zIndex: 4,
+  },
+  glyphText: {
+    color: 'rgba(226, 232, 240, 0.86)',
+    fontSize: 20,
+    lineHeight: 20,
+    textShadowColor: 'rgba(8, 18, 56, 0.35)',
+    textShadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    textShadowRadius: 4,
+  },
+  curiousGlyph: {
+    color: 'rgba(226, 232, 240, 0.82)',
+  },
+  watchGlyph: {
+    color: 'rgba(203, 213, 225, 0.86)',
+    letterSpacing: -1,
+  },
+  guardGlyph: {
+    color: 'rgba(241, 245, 249, 0.92)',
+    fontSize: 18,
+    lineHeight: 18,
+  },
+  offerGlyph: {
+    color: 'rgba(196, 181, 253, 0.84)',
   },
 });

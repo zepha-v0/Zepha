@@ -25,6 +25,7 @@ export function useZephaMotion(params: { width: number; height: number }) {
   const [showSilk, setShowSilk] = useState(false);
 
   const visibleStateRef = useRef<ZephaState>(STATES.SLEEP);
+  const previousVisibleStateRef = useRef<ZephaState>(STATES.SLEEP);
   const activeAnimationId = useRef(0);
 
   const posX = useRef(new Animated.Value(0)).current;
@@ -368,28 +369,36 @@ export function useZephaMotion(params: { width: number; height: number }) {
     stopAllMotion();
     hideSleepVisuals();
 
+    const enteringFromCurious = previousVisibleStateRef.current === STATES.CURIOUS;
+    const settleDuration = enteringFromCurious ? 5600 : 4200;
+    const settleDelay = enteringFromCurious ? 1500 : 1100;
+    const settlePause = enteringFromCurious ? 1800 : 1200;
+    const settleEasing = enteringFromCurious
+      ? Easing.bezier(0.18, 0, 0.08, 1)
+      : CALM_EASING;
+
     setVisibleState(STATES.IDLE);
     visibleStateRef.current = STATES.IDLE;
 
     const idlePos = positions.getIdleHomePosition();
 
     Animated.sequence([
-      Animated.delay(1100),
+      Animated.delay(settleDelay),
       Animated.parallel([
         Animated.timing(posX, {
           toValue: idlePos.x,
-          duration: 4200,
-          easing: CALM_EASING,
+          duration: settleDuration,
+          easing: settleEasing,
           useNativeDriver: true,
         }),
         Animated.timing(posY, {
           toValue: idlePos.y,
-          duration: 4200,
-          easing: CALM_EASING,
+          duration: settleDuration,
+          easing: settleEasing,
           useNativeDriver: true,
         }),
       ]),
-      Animated.delay(1200),
+      Animated.delay(settlePause),
     ]).start(({ finished }) => {
       if (!finished || !isAnimationCurrent(animationId)) return;
 
@@ -416,33 +425,15 @@ export function useZephaMotion(params: { width: number; height: number }) {
     visibleStateRef.current = STATES.CURIOUS;
 
     const currentX = posXRef.current;
-    const currentY = posYRef.current;
     const desired = positions.getCuriousPosition();
-    const entryX = currentX + (desired.x - currentX) * 0.58;
-    const entryY = currentY + (desired.y - currentY) * 0.62;
 
     Animated.sequence([
       Animated.delay(900),
       Animated.parallel([
         Animated.timing(posX, {
-          toValue: entryX,
-          duration: 3800,
-          easing: DRIFT_EASING,
-          useNativeDriver: true,
-        }),
-        Animated.timing(posY, {
-          toValue: entryY,
-          duration: 3800,
-          easing: DRIFT_EASING,
-          useNativeDriver: true,
-        }),
-      ]),
-      Animated.delay(1100),
-      Animated.parallel([
-        Animated.timing(posX, {
           toValue: desired.x,
           duration: STATE_CONFIG[STATES.CURIOUS].enterDuration,
-          easing: CALM_EASING,
+          easing: DRIFT_EASING,
           useNativeDriver: true,
         }),
         Animated.timing(posY, {
@@ -476,50 +467,81 @@ export function useZephaMotion(params: { width: number; height: number }) {
     setVisibleState(STATES.GUARD);
     visibleStateRef.current = STATES.GUARD;
 
-    const midway = positions.getGuardMidwayPosition();
     const guardPos = positions.getGuardPosition();
-    const currentY = posYRef.current;
-    const liftY = currentY + (guardPos.y - currentY) * 0.45;
+    const enteringFromBottomEdge =
+      previousVisibleStateRef.current === STATES.IDLE ||
+      previousVisibleStateRef.current === STATES.CURIOUS ||
+      previousVisibleStateRef.current === STATES.WATCH ||
+      previousVisibleStateRef.current === STATES.GUARD;
 
-    Animated.sequence([
-      Animated.delay(STATE_CONFIG[STATES.GUARD].decisionPause),
-      Animated.parallel([
-        Animated.timing(scale, {
-          toValue: 1.012,
-          duration: 1800,
-          easing: CALM_EASING,
-          useNativeDriver: true,
-        }),
-        Animated.timing(posX, {
-          toValue: midway.x,
-          duration: STATE_CONFIG[STATES.GUARD].moveDurationPhase1,
-          easing: DRIFT_EASING,
-          useNativeDriver: true,
-        }),
-        Animated.timing(posY, {
-          toValue: liftY,
-          duration: Math.max(3600, STATE_CONFIG[STATES.GUARD].moveDurationPhase1 - 1200),
-          easing: DRIFT_EASING,
-          useNativeDriver: true,
-        }),
-      ]),
-      Animated.delay(STATE_CONFIG[STATES.GUARD].meanderPause),
-      Animated.parallel([
-        Animated.timing(posX, {
-          toValue: guardPos.x,
-          duration: STATE_CONFIG[STATES.GUARD].moveDurationPhase2,
-          easing: CALM_EASING,
-          useNativeDriver: true,
-        }),
-        Animated.timing(posY, {
-          toValue: guardPos.y,
-          duration: Math.max(4800, STATE_CONFIG[STATES.GUARD].moveDurationPhase2 - 1200),
-          easing: CALM_EASING,
-          useNativeDriver: true,
-        }),
-      ]),
-      Animated.delay(STATE_CONFIG[STATES.GUARD].settlePause),
-    ]).start(({ finished }) => {
+    const guardTravel = enteringFromBottomEdge
+      ? Animated.sequence([
+          Animated.delay(STATE_CONFIG[STATES.GUARD].decisionPause),
+          Animated.parallel([
+            Animated.timing(scale, {
+              toValue: 1.012,
+              duration: 1800,
+              easing: CALM_EASING,
+              useNativeDriver: true,
+            }),
+            Animated.timing(posX, {
+              toValue: guardPos.x,
+              duration:
+                STATE_CONFIG[STATES.GUARD].moveDurationPhase1 +
+                Math.round(STATE_CONFIG[STATES.GUARD].moveDurationPhase2 * 0.45),
+              easing: DRIFT_EASING,
+              useNativeDriver: true,
+            }),
+            Animated.timing(posY, {
+              toValue: guardPos.y,
+              duration: 2400,
+              easing: CALM_EASING,
+              useNativeDriver: true,
+            }),
+          ]),
+          Animated.delay(STATE_CONFIG[STATES.GUARD].settlePause),
+        ])
+      : Animated.sequence([
+          Animated.delay(STATE_CONFIG[STATES.GUARD].decisionPause),
+          Animated.parallel([
+            Animated.timing(scale, {
+              toValue: 1.012,
+              duration: 1800,
+              easing: CALM_EASING,
+              useNativeDriver: true,
+            }),
+            Animated.timing(posX, {
+              toValue: positions.getGuardMidwayPosition().x,
+              duration: STATE_CONFIG[STATES.GUARD].moveDurationPhase1,
+              easing: DRIFT_EASING,
+              useNativeDriver: true,
+            }),
+            Animated.timing(posY, {
+              toValue: posYRef.current + (guardPos.y - posYRef.current) * 0.45,
+              duration: Math.max(3600, STATE_CONFIG[STATES.GUARD].moveDurationPhase1 - 1200),
+              easing: DRIFT_EASING,
+              useNativeDriver: true,
+            }),
+          ]),
+          Animated.delay(STATE_CONFIG[STATES.GUARD].meanderPause),
+          Animated.parallel([
+            Animated.timing(posX, {
+              toValue: guardPos.x,
+              duration: STATE_CONFIG[STATES.GUARD].moveDurationPhase2,
+              easing: CALM_EASING,
+              useNativeDriver: true,
+            }),
+            Animated.timing(posY, {
+              toValue: guardPos.y,
+              duration: Math.max(4800, STATE_CONFIG[STATES.GUARD].moveDurationPhase2 - 1200),
+              easing: CALM_EASING,
+              useNativeDriver: true,
+            }),
+          ]),
+          Animated.delay(STATE_CONFIG[STATES.GUARD].settlePause),
+        ]);
+
+    guardTravel.start(({ finished }) => {
       if (!finished || !isAnimationCurrent(animationId)) return;
 
       Animated.sequence([
@@ -728,6 +750,7 @@ export function useZephaMotion(params: { width: number; height: number }) {
   }, []);
 
   useEffect(() => {
+    previousVisibleStateRef.current = visibleStateRef.current;
     visibleStateRef.current = visibleState;
   }, [visibleState]);
 

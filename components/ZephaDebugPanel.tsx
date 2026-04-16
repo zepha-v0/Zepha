@@ -2,6 +2,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import type {
   OfferState,
+  StoredOffer,
   ZephaConfidence,
   ZephaContext,
   ZephaMemory,
@@ -22,24 +23,34 @@ export function ZephaDebugPanel(props: {
   context: ZephaContext;
   confidence: ZephaConfidence;
   offerState: OfferState;
+  storedOffers: StoredOffer[];
   memory: ZephaMemory;
   validExits: string;
   focusMode: boolean;
   meetingSoon: boolean;
   relevantPrepExists: boolean;
   manualWorkIntent: boolean;
-  manualUrgency: boolean;
+  manualGuard: boolean;
   firstRunLearningMode: boolean;
   onToggleFocusMode: () => void;
   onToggleMeetingSoon: () => void;
   onToggleRelevantPrep: () => void;
   onToggleManualWorkIntent: () => void;
-  onToggleManualUrgency: () => void;
+  onToggleManualGuard: () => void;
   onToggleLearningMode: () => void;
   onFakeIdle: () => void;
   onSleep: () => void;
+  onSpawnSampleOffer: () => void;
+  onSpawnPriorityOffer: () => void;
+  onSpawnUrgentOffer: () => void;
+  onClearOffers: () => void;
   onResetMemory: () => void;
   onToggleDebug: () => void;
+  stateOverride: 'sleep' | 'wake' | 'idle' | 'curious' | 'guard' | 'watch' | 'offer' | null;
+  onClearStateOverride: () => void;
+  onSetStateOverride: (
+    value: 'sleep' | 'wake' | 'idle' | 'curious' | 'guard' | 'watch' | 'offer'
+  ) => void;
 }) {
   return (
     <>
@@ -81,11 +92,11 @@ export function ZephaDebugPanel(props: {
         </Pressable>
 
         <Pressable
-          style={[styles.debugButton, props.manualUrgency && styles.debugButtonActive]}
-          onPress={props.onToggleManualUrgency}
+          style={[styles.debugButton, props.manualGuard && styles.debugButtonActive]}
+          onPress={props.onToggleManualGuard}
         >
           <Text style={styles.debugButtonText}>
-            {props.manualUrgency ? 'urgent: on' : 'urgent: off'}
+            {props.manualGuard ? 'manual guard: on' : 'manual guard: off'}
           </Text>
         </Pressable>
 
@@ -104,6 +115,22 @@ export function ZephaDebugPanel(props: {
 
         <Pressable style={styles.debugButton} onPress={props.onSleep}>
           <Text style={styles.debugButtonText}>sleep</Text>
+        </Pressable>
+
+        <Pressable style={styles.debugButton} onPress={props.onSpawnSampleOffer}>
+          <Text style={styles.debugButtonText}>spawn offer</Text>
+        </Pressable>
+
+        <Pressable style={styles.debugButton} onPress={props.onSpawnPriorityOffer}>
+          <Text style={styles.debugButtonText}>spawn high</Text>
+        </Pressable>
+
+        <Pressable style={styles.debugButton} onPress={props.onSpawnUrgentOffer}>
+          <Text style={styles.debugButtonText}>spawn urgent</Text>
+        </Pressable>
+
+        <Pressable style={styles.debugButton} onPress={props.onClearOffers}>
+          <Text style={styles.debugButtonText}>clear offers</Text>
         </Pressable>
 
         <Pressable style={styles.debugButton} onPress={props.onResetMemory}>
@@ -148,9 +175,99 @@ export function ZephaDebugPanel(props: {
 
           <Text style={styles.debugTitle}>offer</Text>
           <Text style={styles.debugLine}>visible: {props.offerState.visible ? 'yes' : 'no'}</Text>
-          <Text style={styles.debugLine}>accepted: {props.offerState.accepted ? 'yes' : 'no'}</Text>
-          <Text style={styles.debugLine}>dismissed: {props.offerState.dismissed ? 'yes' : 'no'}</Text>
+          <Text style={styles.debugLine}>
+            active offer id: {props.offerState.activeOfferId ?? 'none'}
+          </Text>
           <Text style={styles.debugLine}>label: {props.offerState.label}</Text>
+
+          <Text style={styles.debugTitle}>stored offers</Text>
+          {props.storedOffers.length === 0 ? (
+            <Text style={styles.debugLine}>no stored offers</Text>
+          ) : (
+            props.storedOffers.map((offer) => (
+              <View key={offer.id} style={styles.offerDebugRow}>
+                <Text style={styles.debugLine}>id: {offer.id}</Text>
+                <Text style={styles.debugLine}>status: {offer.status}</Text>
+                <Text style={styles.debugLine}>priority: {offer.priority}</Text>
+                <Text style={styles.debugLine}>urgency: {offer.urgency}</Text>
+                <Text style={styles.debugLine}>created: {new Date(offer.createdAt).toLocaleString()}</Text>
+                <Text style={styles.debugLine}>
+                  responded: {offer.respondedAt ? new Date(offer.respondedAt).toLocaleString() : 'pending'}
+                </Text>
+              </View>
+            ))
+          )}
+
+          <Text style={styles.debugTitle}>state override</Text>
+          <Text style={styles.debugLine}>active: {props.stateOverride ?? 'none'}</Text>
+          <View style={styles.overrideRow}>
+            <Pressable style={styles.debugButton} onPress={props.onClearStateOverride}>
+              <Text style={styles.debugButtonText}>clear override</Text>
+            </Pressable>
+            <Pressable
+              style={[
+                styles.debugButton,
+                props.stateOverride === 'sleep' && styles.debugButtonActive,
+              ]}
+              onPress={() => props.onSetStateOverride('sleep')}
+            >
+              <Text style={styles.debugButtonText}>sleep</Text>
+            </Pressable>
+            <Pressable
+              style={[
+                styles.debugButton,
+                props.stateOverride === 'wake' && styles.debugButtonActive,
+              ]}
+              onPress={() => props.onSetStateOverride('wake')}
+            >
+              <Text style={styles.debugButtonText}>wake</Text>
+            </Pressable>
+            <Pressable
+              style={[
+                styles.debugButton,
+                props.stateOverride === 'idle' && styles.debugButtonActive,
+              ]}
+              onPress={() => props.onSetStateOverride('idle')}
+            >
+              <Text style={styles.debugButtonText}>idle</Text>
+            </Pressable>
+            <Pressable
+              style={[
+                styles.debugButton,
+                props.stateOverride === 'curious' && styles.debugButtonActive,
+              ]}
+              onPress={() => props.onSetStateOverride('curious')}
+            >
+              <Text style={styles.debugButtonText}>curious</Text>
+            </Pressable>
+            <Pressable
+              style={[
+                styles.debugButton,
+                props.stateOverride === 'guard' && styles.debugButtonActive,
+              ]}
+              onPress={() => props.onSetStateOverride('guard')}
+            >
+              <Text style={styles.debugButtonText}>guard</Text>
+            </Pressable>
+            <Pressable
+              style={[
+                styles.debugButton,
+                props.stateOverride === 'watch' && styles.debugButtonActive,
+              ]}
+              onPress={() => props.onSetStateOverride('watch')}
+            >
+              <Text style={styles.debugButtonText}>watch</Text>
+            </Pressable>
+            <Pressable
+              style={[
+                styles.debugButton,
+                props.stateOverride === 'offer' && styles.debugButtonActive,
+              ]}
+              onPress={() => props.onSetStateOverride('offer')}
+            >
+              <Text style={styles.debugButtonText}>offer</Text>
+            </Pressable>
+          </View>
 
           <Text style={styles.debugTitle}>memory</Text>
           <Text style={styles.debugLine}>guard wins: {props.memory.guardWins}</Text>
@@ -230,6 +347,19 @@ const styles = StyleSheet.create({
   debugLine: {
     color: '#cbd5e1',
     fontSize: 12,
+    marginBottom: 4,
+  },
+  offerDebugRow: {
+    marginBottom: 10,
+    paddingBottom: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(148, 163, 184, 0.12)',
+  },
+  overrideRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 4,
     marginBottom: 4,
   },
 });

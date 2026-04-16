@@ -18,7 +18,7 @@ export const VALID_TRANSITIONS: Record<ZephaState, ZephaState[]> = {
   [STATES.IDLE]: [STATES.CURIOUS, STATES.GUARD, STATES.SLEEP],
   [STATES.CURIOUS]: [STATES.GUARD, STATES.IDLE],
   [STATES.GUARD]: [STATES.WATCH],
-  [STATES.WATCH]: [STATES.GUARD, STATES.IDLE, STATES.CURIOUS, STATES.SLEEP],
+  [STATES.WATCH]: [STATES.GUARD, STATES.IDLE, STATES.CURIOUS],
 };
 
 export function isTransitionAllowed(from: ZephaState, to: ZephaState) {
@@ -52,11 +52,11 @@ export function getGuardVisualUrgency(
   context: ZephaContext,
   confidence: ZephaConfidence
 ): GuardVisualUrgency {
-  if (signals.manualUrgency && confidence.guard >= PRODUCT_CONFIG.confidence.guardExtreme) {
+  if (signals.manualGuard && confidence.guard >= PRODUCT_CONFIG.confidence.guardExtreme) {
     return 'extreme';
   }
 
-  if (signals.manualUrgency || confidence.guard >= PRODUCT_CONFIG.confidence.guardImmediate) {
+  if (signals.manualGuard || confidence.guard >= PRODUCT_CONFIG.confidence.guardImmediate) {
     return 'urgent';
   }
 

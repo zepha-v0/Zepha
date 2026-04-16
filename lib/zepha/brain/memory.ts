@@ -52,7 +52,7 @@ export function reinforceMemory(
   if (currentSignals.manualWorkIntent || currentSignals.meetingSoon || currentSignals.focusMode) {
     memory.recentWorkIntentAt = now;
   }
-  if (currentSignals.manualUrgency) {
+  if (currentSignals.manualGuard) {
     memory.recentUrgencyAt = now;
   }
 

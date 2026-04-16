@@ -22,7 +22,7 @@ export function buildZephaPositions(width: number, height: number): ZephaPositio
     }),
     getCuriousPosition: () => ({
       x: Math.max(leftWallX + 55, Math.min(rightWallX - 90, width * 0.42)),
-      y: Math.max(topWallY + 80, bottomWallY - 110),
+      y: bottomWallY,
     }),
     getGuardMidwayPosition: () => ({
       x: Math.max(leftWallX + 90, Math.min(rightWallX - 120, width * 0.62)),

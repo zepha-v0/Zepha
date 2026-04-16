@@ -38,3 +38,4 @@ Start with:
 - Prefer full-file updates over partial snippets.
 - Avoid breaking animation/state sync.
 - Preserve Zepha behavior rules above all else.
+Always follow ZEPHA_CODEX_GUARDRAILS.md before making changes.

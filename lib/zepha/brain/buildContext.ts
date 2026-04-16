@@ -35,10 +35,9 @@ export function buildZephaContext(signals: ZephaSignals): ZephaContext {
   const sleepEligible = !signals.appIsActive && inactivityMs >= LONG_INACTIVITY_MS;
 
   const workIntentActive = signals.focusMode || signals.manualWorkIntent;
-  const offerIntentActive =
-    signals.meetingSoon && signals.relevantPrepExists && !signals.manualUrgency;
+  const offerIntentActive = signals.relevantPrepExists && !signals.manualGuard;
   const guardIntentActive =
-    signals.focusMode || signals.manualWorkIntent || signals.manualUrgency;
+    signals.focusMode || signals.manualWorkIntent || signals.manualGuard;
   const shouldDecompress =
     !guardIntentActive &&
     (sustainedEngagement || signals.focusMode || signals.manualWorkIntent);

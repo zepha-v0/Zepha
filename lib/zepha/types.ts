@@ -17,7 +17,7 @@ export type ZephaSignals = {
   focusMode: boolean;
   meetingSoon: boolean;
   manualWorkIntent: boolean;
-  manualUrgency: boolean;
+  manualGuard: boolean;
   relevantPrepExists: boolean;
   firstRunLearningMode: boolean;
 };
@@ -77,9 +77,24 @@ export type ZephaMemory = {
 
 export type OfferState = {
   visible: boolean;
-  accepted: boolean;
-  dismissed: boolean;
+  activeOfferId: string | null;
   label: string;
+};
+
+export type StoredOfferStatus = 'pending' | 'accepted' | 'declined';
+export type StoredOfferType = 'note';
+export type StoredOfferUrgency = 'normal' | 'urgent';
+
+export type StoredOffer = {
+  id: string;
+  type: StoredOfferType;
+  title: string;
+  body: string;
+  priority: number;
+  urgency: StoredOfferUrgency;
+  createdAt: number;
+  status: StoredOfferStatus;
+  respondedAt: number | null;
 };
 
 export type GuardVisualUrgency = 'measured' | 'urgent' | 'extreme';

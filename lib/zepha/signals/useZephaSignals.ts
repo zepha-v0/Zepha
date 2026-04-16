@@ -7,7 +7,7 @@ export function useZephaSignals(params: {
   focusMode: boolean;
   meetingSoon: boolean;
   manualWorkIntent: boolean;
-  manualUrgency: boolean;
+  manualGuard: boolean;
   relevantPrepExists: boolean;
   firstRunLearningMode: boolean;
 }) {
@@ -71,7 +71,7 @@ export function useZephaSignals(params: {
     focusMode: params.focusMode,
     meetingSoon: params.meetingSoon,
     manualWorkIntent: params.manualWorkIntent,
-    manualUrgency: params.manualUrgency,
+    manualGuard: params.manualGuard,
     relevantPrepExists: params.relevantPrepExists,
     firstRunLearningMode: params.firstRunLearningMode,
   };

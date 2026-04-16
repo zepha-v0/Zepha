@@ -10,13 +10,14 @@ export function decideZephaState(
   offerVisible: boolean
 ): BrainDecision {
   const guardIsImmediate =
-    confidence.guard >= PRODUCT_CONFIG.confidence.guardImmediate || signals.manualUrgency;
+    confidence.guard >= PRODUCT_CONFIG.confidence.guardImmediate || signals.manualGuard;
   const guardIsCommitted =
     confidence.guard >= PRODUCT_CONFIG.confidence.guardCommit && context.guardIntentActive;
   const curiousAllowed = !signals.firstRunLearningMode;
   const curiousHasMomentum =
     curiousAllowed &&
     confidence.curious >= PRODUCT_CONFIG.confidence.curiousBaseline &&
+    !context.guardIntentActive &&
     confidence.guard < PRODUCT_CONFIG.confidence.guardImmediate;
 
   if (context.sleepEligible) {
@@ -37,11 +38,11 @@ export function decideZephaState(
     if (guardIsImmediate) {
       return { nextState: STATES.GUARD, reason: 'light wake escalated to guard' };
     }
+    if (guardIsCommitted) {
+      return { nextState: STATES.GUARD, reason: 'light wake committed to guard intent' };
+    }
     if (!context.wakeWindowActive && context.inactivityMs > SOFT_INACTIVITY_MS) {
       return { nextState: STATES.SLEEP, reason: 'light wake faded back to sleep' };
-    }
-    if (guardIsCommitted && context.wakeWindowActive) {
-      return { nextState: STATES.WAKE, reason: 'light wake preparing deliberate guard wake' };
     }
     if (context.wakeWindowActive && context.activityLevel !== 'still') {
       return { nextState: STATES.WAKE, reason: 'interaction committed wake' };
@@ -56,14 +57,14 @@ export function decideZephaState(
     if (guardIsImmediate) {
       return { nextState: STATES.GUARD, reason: 'wake escalated to immediate guard' };
     }
-    if (curiousHasMomentum && !context.guardIntentActive) {
-      return { nextState: STATES.CURIOUS, reason: 'wake reading the room before settling' };
-    }
-    if (guardIsCommitted && !context.wakeWindowActive) {
-      return { nextState: STATES.GUARD, reason: 'wake committed to guard after decision beat' };
+    if (guardIsCommitted) {
+      return { nextState: STATES.GUARD, reason: 'wake committed to clear guard intent' };
     }
     if (context.wakeWindowActive) {
       return { nextState: STATES.WAKE, reason: 'wake grace window' };
+    }
+    if (curiousHasMomentum) {
+      return { nextState: STATES.CURIOUS, reason: 'wake reading the room before settling' };
     }
     if (curiousAllowed && confidence.curious >= PRODUCT_CONFIG.confidence.curiousBridge) {
       return { nextState: STATES.CURIOUS, reason: 'wake resolving into curiosity' };
@@ -82,8 +83,8 @@ export function decideZephaState(
     if (guardIsImmediate) {
       return { nextState: STATES.GUARD, reason: 'watch resumed guard' };
     }
-    if (curiousHasMomentum && confidence.guard < PRODUCT_CONFIG.confidence.guardCommit) {
-      return { nextState: STATES.CURIOUS, reason: 'watch softened into curiosity' };
+    if (guardIsCommitted) {
+      return { nextState: STATES.GUARD, reason: 'watch recommitted to guard after pause' };
     }
     if (
       context.inactivityMs > WATCH_TO_IDLE_MS ||
@@ -91,14 +92,17 @@ export function decideZephaState(
     ) {
       return { nextState: STATES.IDLE, reason: 'watch cooled to idle' };
     }
-    if (guardIsCommitted) {
-      return { nextState: STATES.GUARD, reason: 'watch recommitted to guard after pause' };
+    if (curiousHasMomentum && confidence.guard < PRODUCT_CONFIG.confidence.guardCommit) {
+      return { nextState: STATES.CURIOUS, reason: 'watch softened into curiosity' };
     }
     return { nextState: STATES.WATCH, reason: 'continue watch' };
   }
 
   if (guardIsImmediate) {
     return { nextState: STATES.GUARD, reason: 'high guard confidence' };
+  }
+  if (guardIsCommitted) {
+    return { nextState: STATES.GUARD, reason: 'clear focus committed to guard' };
   }
   if (confidence.sleep >= 0.7) {
     return { nextState: STATES.SLEEP, reason: 'sleep confidence high' };
@@ -108,15 +112,6 @@ export function decideZephaState(
       return { nextState: STATES.IDLE, reason: 'offer present while body stays calm' };
     }
     return { nextState: STATES.CURIOUS, reason: 'offer present while reading moment' };
-  }
-  if (confidence.watch >= PRODUCT_CONFIG.confidence.watchCarry && context.shouldDecompress) {
-    if (curiousHasMomentum && confidence.watch < 0.72) {
-      return { nextState: STATES.CURIOUS, reason: 'post-intensity decompression favors curiosity' };
-    }
-    return { nextState: STATES.WATCH, reason: 'post-intensity watch carry' };
-  }
-  if (guardIsCommitted) {
-    return { nextState: STATES.GUARD, reason: 'measured guard confidence' };
   }
   if (curiousHasMomentum) {
     return { nextState: STATES.CURIOUS, reason: 'medium uncertainty curiosity' };
