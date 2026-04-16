@@ -9,6 +9,16 @@ export function decideZephaState(
   confidence: ZephaConfidence,
   offerVisible: boolean
 ): BrainDecision {
+  const guardIsImmediate =
+    confidence.guard >= PRODUCT_CONFIG.confidence.guardImmediate || signals.manualUrgency;
+  const guardIsCommitted =
+    confidence.guard >= PRODUCT_CONFIG.confidence.guardCommit && context.guardIntentActive;
+  const curiousAllowed = !signals.firstRunLearningMode;
+  const curiousHasMomentum =
+    curiousAllowed &&
+    confidence.curious >= PRODUCT_CONFIG.confidence.curiousBaseline &&
+    confidence.guard < PRODUCT_CONFIG.confidence.guardImmediate;
+
   if (context.sleepEligible) {
     return { nextState: STATES.SLEEP, reason: 'sleep eligible after long inactivity' };
   }
@@ -24,11 +34,14 @@ export function decideZephaState(
   }
 
   if (currentState === STATES.LIGHT_WAKE) {
-    if (context.guardIntentActive) {
+    if (guardIsImmediate) {
       return { nextState: STATES.GUARD, reason: 'light wake escalated to guard' };
     }
     if (!context.wakeWindowActive && context.inactivityMs > SOFT_INACTIVITY_MS) {
       return { nextState: STATES.SLEEP, reason: 'light wake faded back to sleep' };
+    }
+    if (guardIsCommitted && context.wakeWindowActive) {
+      return { nextState: STATES.WAKE, reason: 'light wake preparing deliberate guard wake' };
     }
     if (context.wakeWindowActive && context.activityLevel !== 'still') {
       return { nextState: STATES.WAKE, reason: 'interaction committed wake' };
@@ -40,31 +53,37 @@ export function decideZephaState(
   }
 
   if (currentState === STATES.WAKE) {
-    if (confidence.guard >= PRODUCT_CONFIG.confidence.guardCommit) {
-      return { nextState: STATES.GUARD, reason: 'wake escalated to guard' };
+    if (guardIsImmediate) {
+      return { nextState: STATES.GUARD, reason: 'wake escalated to immediate guard' };
+    }
+    if (curiousHasMomentum && !context.guardIntentActive) {
+      return { nextState: STATES.CURIOUS, reason: 'wake reading the room before settling' };
+    }
+    if (guardIsCommitted && !context.wakeWindowActive) {
+      return { nextState: STATES.GUARD, reason: 'wake committed to guard after decision beat' };
     }
     if (context.wakeWindowActive) {
       return { nextState: STATES.WAKE, reason: 'wake grace window' };
     }
-    if (
-      confidence.curious >= PRODUCT_CONFIG.confidence.curiousBridge &&
-      !signals.firstRunLearningMode
-    ) {
+    if (curiousAllowed && confidence.curious >= PRODUCT_CONFIG.confidence.curiousBridge) {
       return { nextState: STATES.CURIOUS, reason: 'wake resolving into curiosity' };
     }
     return { nextState: STATES.IDLE, reason: 'wake settled to idle' };
   }
 
   if (currentState === STATES.GUARD) {
-    if (confidence.guard >= 0.46 || context.guardIntentActive) {
+    if (guardIsCommitted || confidence.guard >= 0.5 || context.guardIntentActive) {
       return { nextState: STATES.GUARD, reason: 'maintain guard' };
     }
     return { nextState: STATES.WATCH, reason: 'guard released to watch' };
   }
 
   if (currentState === STATES.WATCH) {
-    if (confidence.guard >= PRODUCT_CONFIG.confidence.guardCommit || context.guardIntentActive) {
+    if (guardIsImmediate) {
       return { nextState: STATES.GUARD, reason: 'watch resumed guard' };
+    }
+    if (curiousHasMomentum && confidence.guard < PRODUCT_CONFIG.confidence.guardCommit) {
+      return { nextState: STATES.CURIOUS, reason: 'watch softened into curiosity' };
     }
     if (
       context.inactivityMs > WATCH_TO_IDLE_MS ||
@@ -72,37 +91,34 @@ export function decideZephaState(
     ) {
       return { nextState: STATES.IDLE, reason: 'watch cooled to idle' };
     }
-    if (
-      confidence.curious >= PRODUCT_CONFIG.confidence.curiousBaseline &&
-      context.activityLevel !== 'still'
-    ) {
-      return { nextState: STATES.CURIOUS, reason: 'watch reopened into curiosity' };
+    if (guardIsCommitted) {
+      return { nextState: STATES.GUARD, reason: 'watch recommitted to guard after pause' };
     }
     return { nextState: STATES.WATCH, reason: 'continue watch' };
   }
 
-  if (confidence.guard >= PRODUCT_CONFIG.confidence.guardImmediate) {
+  if (guardIsImmediate) {
     return { nextState: STATES.GUARD, reason: 'high guard confidence' };
   }
   if (confidence.sleep >= 0.7) {
     return { nextState: STATES.SLEEP, reason: 'sleep confidence high' };
   }
   if (offerVisible) {
-    if (confidence.idle >= 0.62 && context.activityLevel === 'still') {
+    if (confidence.idle >= 0.66 && context.activityLevel === 'still' && confidence.curious < 0.48) {
       return { nextState: STATES.IDLE, reason: 'offer present while body stays calm' };
     }
     return { nextState: STATES.CURIOUS, reason: 'offer present while reading moment' };
   }
   if (confidence.watch >= PRODUCT_CONFIG.confidence.watchCarry && context.shouldDecompress) {
+    if (curiousHasMomentum && confidence.watch < 0.72) {
+      return { nextState: STATES.CURIOUS, reason: 'post-intensity decompression favors curiosity' };
+    }
     return { nextState: STATES.WATCH, reason: 'post-intensity watch carry' };
   }
-  if (confidence.guard >= PRODUCT_CONFIG.confidence.guardCommit && context.guardIntentActive) {
+  if (guardIsCommitted) {
     return { nextState: STATES.GUARD, reason: 'measured guard confidence' };
   }
-  if (
-    confidence.curious >= PRODUCT_CONFIG.confidence.curiousBaseline &&
-    !signals.firstRunLearningMode
-  ) {
+  if (curiousHasMomentum) {
     return { nextState: STATES.CURIOUS, reason: 'medium uncertainty curiosity' };
   }
 

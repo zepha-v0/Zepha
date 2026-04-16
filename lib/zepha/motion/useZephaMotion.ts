@@ -12,6 +12,9 @@ import type {
 import { animateXY, stopAnimatedValues, stopLoop, useEffectEvent } from './animations';
 import { buildZephaPositions } from './positions';
 
+const CALM_EASING = Easing.bezier(0.22, 0, 0.18, 1);
+const DRIFT_EASING = Easing.bezier(0.3, 0, 0.18, 1);
+
 export function useZephaMotion(params: { width: number; height: number }) {
   const positions = useMemo(
     () => buildZephaPositions(params.width, params.height),
@@ -116,21 +119,21 @@ export function useZephaMotion(params: { width: number; height: number }) {
         Animated.timing(watchNudge, {
           toValue: STATE_CONFIG[STATES.WATCH].scanAmount,
           duration: STATE_CONFIG[STATES.WATCH].scanForwardDuration,
-          easing: Easing.bezier(0.33, 0, 0.2, 1),
+          easing: DRIFT_EASING,
           useNativeDriver: true,
         }),
-        Animated.delay(500),
+        Animated.delay(800),
         Animated.timing(watchNudge, {
-          toValue: -STATE_CONFIG[STATES.WATCH].scanAmount * 0.7,
+          toValue: -STATE_CONFIG[STATES.WATCH].scanAmount * 0.6,
           duration: STATE_CONFIG[STATES.WATCH].scanBackDuration,
-          easing: Easing.bezier(0.33, 0, 0.2, 1),
+          easing: DRIFT_EASING,
           useNativeDriver: true,
         }),
-        Animated.delay(700),
+        Animated.delay(1000),
         Animated.timing(watchNudge, {
           toValue: 0,
-          duration: 2400,
-          easing: Easing.bezier(0.33, 0, 0.2, 1),
+          duration: 3400,
+          easing: CALM_EASING,
           useNativeDriver: true,
         }),
         Animated.delay(STATE_CONFIG[STATES.WATCH].lingerDuration),
@@ -150,21 +153,21 @@ export function useZephaMotion(params: { width: number; height: number }) {
         Animated.timing(curiousNudge, {
           toValue: STATE_CONFIG[STATES.CURIOUS].scanAmount,
           duration: STATE_CONFIG[STATES.CURIOUS].scanForwardDuration,
-          easing: Easing.bezier(0.33, 0, 0.2, 1),
+          easing: DRIFT_EASING,
           useNativeDriver: true,
         }),
-        Animated.delay(400),
+        Animated.delay(900),
         Animated.timing(curiousNudge, {
-          toValue: -STATE_CONFIG[STATES.CURIOUS].scanAmount,
+          toValue: -STATE_CONFIG[STATES.CURIOUS].scanAmount * 0.85,
           duration: STATE_CONFIG[STATES.CURIOUS].scanBackDuration,
-          easing: Easing.bezier(0.33, 0, 0.2, 1),
+          easing: DRIFT_EASING,
           useNativeDriver: true,
         }),
         Animated.delay(STATE_CONFIG[STATES.CURIOUS].lingerDuration),
         Animated.timing(curiousNudge, {
           toValue: 0,
-          duration: 2600,
-          easing: Easing.bezier(0.33, 0, 0.2, 1),
+          duration: 3400,
+          easing: CALM_EASING,
           useNativeDriver: true,
         }),
       ])
@@ -227,6 +230,18 @@ export function useZephaMotion(params: { width: number; height: number }) {
     onComplete?.();
   };
 
+  const playBlinkSequence = (onComplete?: () => void) => {
+    Animated.sequence([
+      Animated.timing(blinkScaleY, { toValue: 0.28, duration: 240, useNativeDriver: true }),
+      Animated.timing(blinkScaleY, { toValue: 1, duration: 320, useNativeDriver: true }),
+      Animated.delay(420),
+      Animated.timing(blinkScaleY, { toValue: 0.36, duration: 240, useNativeDriver: true }),
+      Animated.timing(blinkScaleY, { toValue: 1, duration: 340, useNativeDriver: true }),
+    ]).start(({ finished }) => {
+      if (finished) onComplete?.();
+    });
+  };
+
   const animateLightWake = (onComplete?: () => void) => {
     const animationId = nextAnimationId();
     stopAllMotion();
@@ -242,28 +257,17 @@ export function useZephaMotion(params: { width: number; height: number }) {
     showSleepVisuals();
 
     Animated.timing(zzzOpacity, {
-      toValue: 0.45,
-      duration: 700,
+      toValue: 0.55,
+      duration: 1000,
+      easing: CALM_EASING,
       useNativeDriver: true,
     }).start();
 
-    Animated.sequence([
-      Animated.timing(blinkScaleY, { toValue: 0.18, duration: 180, useNativeDriver: true }),
-      Animated.timing(blinkScaleY, { toValue: 1, duration: 240, useNativeDriver: true }),
-      Animated.delay(260),
-      Animated.timing(blinkScaleY, { toValue: 0.24, duration: 180, useNativeDriver: true }),
-      Animated.timing(blinkScaleY, { toValue: 1, duration: 260, useNativeDriver: true }),
-    ]).start();
+    playBlinkSequence();
 
     lightWakeTimeoutRef.current = setTimeout(() => {
       if (!isAnimationCurrent(animationId)) return;
-      Animated.sequence([
-        Animated.timing(blinkScaleY, { toValue: 0.18, duration: 180, useNativeDriver: true }),
-        Animated.timing(blinkScaleY, { toValue: 1, duration: 240, useNativeDriver: true }),
-        Animated.delay(260),
-        Animated.timing(blinkScaleY, { toValue: 0.24, duration: 180, useNativeDriver: true }),
-        Animated.timing(blinkScaleY, { toValue: 1, duration: 260, useNativeDriver: true }),
-      ]).start(() => {
+      playBlinkSequence(() => {
         onComplete?.();
       });
     }, STATE_CONFIG[STATES.LIGHT_WAKE].blinkPauseMs);
@@ -274,13 +278,13 @@ export function useZephaMotion(params: { width: number; height: number }) {
       Animated.timing(scale, {
         toValue: STATE_CONFIG[STATES.WAKE].stretchScale,
         duration: STATE_CONFIG[STATES.WAKE].stretchDurationIn,
-        easing: Easing.bezier(0.2, 0, 0.2, 1),
+        easing: CALM_EASING,
         useNativeDriver: true,
       }),
       Animated.timing(scale, {
-        toValue: 1.01,
+        toValue: 1.008,
         duration: STATE_CONFIG[STATES.WAKE].stretchDurationOut,
-        easing: Easing.bezier(0.2, 0, 0.2, 1),
+        easing: CALM_EASING,
         useNativeDriver: true,
       }),
     ]).start(({ finished }) => {
@@ -307,6 +311,7 @@ export function useZephaMotion(params: { width: number; height: number }) {
     Animated.timing(zzzOpacity, {
       toValue: 0,
       duration: STATE_CONFIG[STATES.WAKE].zzzFadeDuration,
+      easing: CALM_EASING,
       useNativeDriver: true,
     }).start(({ finished }) => {
       if (!finished || !isAnimationCurrent(animationId)) return;
@@ -317,7 +322,8 @@ export function useZephaMotion(params: { width: number; height: number }) {
         setShowSilk(true);
         Animated.timing(silkOpacity, {
           toValue: 1,
-          duration: 360,
+          duration: 500,
+          easing: CALM_EASING,
           useNativeDriver: true,
         }).start(({ finished: silkInFinished }) => {
           if (!silkInFinished || !isAnimationCurrent(animationId)) return;
@@ -328,13 +334,14 @@ export function useZephaMotion(params: { width: number; height: number }) {
             toX: idlePos.x,
             toY: idlePos.y,
             duration: STATE_CONFIG[STATES.WAKE].descendDuration,
-            easing: Easing.bezier(0.22, 0, 0.2, 1),
+            easing: CALM_EASING,
             onComplete: () => {
               if (!isAnimationCurrent(animationId)) return;
 
               Animated.timing(silkOpacity, {
                 toValue: 0,
-                duration: 360,
+                duration: 500,
+                easing: CALM_EASING,
                 useNativeDriver: true,
               }).start(({ finished: silkOutFinished }) => {
                 if (!silkOutFinished || !isAnimationCurrent(animationId)) return;
@@ -347,7 +354,7 @@ export function useZephaMotion(params: { width: number; height: number }) {
                 onComplete?.();
                 wanderTimeout.current = setTimeout(() => {
                   wanderBottomEdge(animationId);
-                }, 1500);
+                }, 2200);
               });
             },
           });
@@ -367,35 +374,36 @@ export function useZephaMotion(params: { width: number; height: number }) {
     const idlePos = positions.getIdleHomePosition();
 
     Animated.sequence([
-      Animated.delay(800),
+      Animated.delay(1100),
       Animated.parallel([
         Animated.timing(posX, {
           toValue: idlePos.x,
-          duration: 3200,
-          easing: Easing.bezier(0.22, 0, 0.18, 1),
+          duration: 4200,
+          easing: CALM_EASING,
           useNativeDriver: true,
         }),
         Animated.timing(posY, {
           toValue: idlePos.y,
-          duration: 3200,
-          easing: Easing.bezier(0.22, 0, 0.18, 1),
+          duration: 4200,
+          easing: CALM_EASING,
           useNativeDriver: true,
         }),
       ]),
-      Animated.delay(800),
+      Animated.delay(1200),
     ]).start(({ finished }) => {
       if (!finished || !isAnimationCurrent(animationId)) return;
 
       Animated.timing(scale, {
         toValue: 1,
-        duration: 1400,
+        duration: 1800,
+        easing: CALM_EASING,
         useNativeDriver: true,
       }).start();
 
       onComplete?.();
       wanderTimeout.current = setTimeout(() => {
         wanderBottomEdge(animationId);
-      }, 1600);
+      }, 2400);
     });
   };
 
@@ -410,26 +418,43 @@ export function useZephaMotion(params: { width: number; height: number }) {
     const currentX = posXRef.current;
     const currentY = posYRef.current;
     const desired = positions.getCuriousPosition();
-
-    const softEntryX = Math.max(positions.leftWallX + 35, Math.min(desired.x, currentX + 28));
-    const softEntryY = Math.max(
-      positions.topWallY + 70,
-      Math.min(positions.bottomWallY - 95, currentY - 8)
-    );
+    const entryX = currentX + (desired.x - currentX) * 0.58;
+    const entryY = currentY + (desired.y - currentY) * 0.62;
 
     Animated.sequence([
-      Animated.delay(700),
+      Animated.delay(900),
       Animated.parallel([
         Animated.timing(posX, {
-          toValue: softEntryX,
-          duration: 3200,
-          easing: Easing.bezier(0.22, 0, 0.2, 1),
+          toValue: entryX,
+          duration: 3800,
+          easing: DRIFT_EASING,
           useNativeDriver: true,
         }),
         Animated.timing(posY, {
-          toValue: softEntryY,
-          duration: 3200,
-          easing: Easing.bezier(0.22, 0, 0.2, 1),
+          toValue: entryY,
+          duration: 3800,
+          easing: DRIFT_EASING,
+          useNativeDriver: true,
+        }),
+      ]),
+      Animated.delay(1100),
+      Animated.parallel([
+        Animated.timing(posX, {
+          toValue: desired.x,
+          duration: STATE_CONFIG[STATES.CURIOUS].enterDuration,
+          easing: CALM_EASING,
+          useNativeDriver: true,
+        }),
+        Animated.timing(posY, {
+          toValue: desired.y,
+          duration: STATE_CONFIG[STATES.CURIOUS].enterDuration,
+          easing: CALM_EASING,
+          useNativeDriver: true,
+        }),
+        Animated.timing(scale, {
+          toValue: 1.01,
+          duration: 2600,
+          easing: CALM_EASING,
           useNativeDriver: true,
         }),
       ]),
@@ -451,65 +476,45 @@ export function useZephaMotion(params: { width: number; height: number }) {
     setVisibleState(STATES.GUARD);
     visibleStateRef.current = STATES.GUARD;
 
-    const currentX = posXRef.current;
-    const laneY = positions.bottomWallY;
     const midway = positions.getGuardMidwayPosition();
     const guardPos = positions.getGuardPosition();
-
-    const settleIntoLaneX = Math.max(
-      positions.leftWallX + 50,
-      Math.min(midway.x - 35, currentX + 20)
-    );
+    const currentY = posYRef.current;
+    const liftY = currentY + (guardPos.y - currentY) * 0.45;
 
     Animated.sequence([
-      Animated.delay(1600),
+      Animated.delay(STATE_CONFIG[STATES.GUARD].decisionPause),
       Animated.parallel([
         Animated.timing(scale, {
-          toValue: 1.015,
-          duration: 1100,
-          easing: Easing.bezier(0.2, 0, 0.2, 1),
+          toValue: 1.012,
+          duration: 1800,
+          easing: CALM_EASING,
           useNativeDriver: true,
         }),
-        Animated.timing(posX, {
-          toValue: settleIntoLaneX,
-          duration: 5000,
-          easing: Easing.bezier(0.22, 0, 0.2, 1),
-          useNativeDriver: true,
-        }),
-        Animated.timing(posY, {
-          toValue: laneY,
-          duration: 3400,
-          easing: Easing.bezier(0.22, 0, 0.2, 1),
-          useNativeDriver: true,
-        }),
-      ]),
-      Animated.delay(2200),
-      Animated.parallel([
         Animated.timing(posX, {
           toValue: midway.x,
-          duration: 6400,
-          easing: Easing.bezier(0.2, 0, 0.2, 1),
+          duration: STATE_CONFIG[STATES.GUARD].moveDurationPhase1,
+          easing: DRIFT_EASING,
           useNativeDriver: true,
         }),
         Animated.timing(posY, {
-          toValue: midway.y,
-          duration: 4200,
-          easing: Easing.bezier(0.2, 0, 0.2, 1),
+          toValue: liftY,
+          duration: Math.max(3600, STATE_CONFIG[STATES.GUARD].moveDurationPhase1 - 1200),
+          easing: DRIFT_EASING,
           useNativeDriver: true,
         }),
       ]),
-      Animated.delay(1200),
+      Animated.delay(STATE_CONFIG[STATES.GUARD].meanderPause),
       Animated.parallel([
         Animated.timing(posX, {
           toValue: guardPos.x,
-          duration: 7600,
-          easing: Easing.bezier(0.22, 0, 0.18, 1),
+          duration: STATE_CONFIG[STATES.GUARD].moveDurationPhase2,
+          easing: CALM_EASING,
           useNativeDriver: true,
         }),
         Animated.timing(posY, {
           toValue: guardPos.y,
-          duration: 5800,
-          easing: Easing.bezier(0.22, 0, 0.18, 1),
+          duration: Math.max(4800, STATE_CONFIG[STATES.GUARD].moveDurationPhase2 - 1200),
+          easing: CALM_EASING,
           useNativeDriver: true,
         }),
       ]),
@@ -520,14 +525,14 @@ export function useZephaMotion(params: { width: number; height: number }) {
       Animated.sequence([
         Animated.timing(scale, {
           toValue: STATE_CONFIG[STATES.GUARD].settleScalePeak,
-          duration: 900,
-          easing: Easing.bezier(0.2, 0, 0.2, 1),
+          duration: 1100,
+          easing: CALM_EASING,
           useNativeDriver: true,
         }),
         Animated.timing(scale, {
           toValue: STATE_CONFIG[STATES.GUARD].settleScaleRest,
-          duration: 1100,
-          easing: Easing.bezier(0.2, 0, 0.2, 1),
+          duration: 1400,
+          easing: CALM_EASING,
           useNativeDriver: true,
         }),
       ]).start(() => {
@@ -547,28 +552,38 @@ export function useZephaMotion(params: { width: number; height: number }) {
     const watchPos = positions.getWatchPosition();
 
     Animated.sequence([
-      Animated.delay(500),
+      Animated.delay(800),
       Animated.parallel([
         Animated.timing(posX, {
           toValue: watchPos.x,
           duration: STATE_CONFIG[STATES.WATCH].enterDuration,
-          easing: Easing.bezier(0.25, 0.1, 0.25, 1),
+          easing: CALM_EASING,
           useNativeDriver: true,
         }),
         Animated.timing(posY, {
           toValue: watchPos.y,
           duration: STATE_CONFIG[STATES.WATCH].enterDuration,
-          easing: Easing.bezier(0.25, 0.1, 0.25, 1),
+          easing: CALM_EASING,
           useNativeDriver: true,
         }),
       ]),
-      Animated.delay(500),
+      Animated.delay(900),
     ]).start(({ finished }) => {
       if (!finished || !isAnimationCurrent(animationId)) return;
 
       Animated.sequence([
-        Animated.timing(scale, { toValue: 1.025, duration: 900, useNativeDriver: true }),
-        Animated.timing(scale, { toValue: 1.01, duration: 1000, useNativeDriver: true }),
+        Animated.timing(scale, {
+          toValue: 1.02,
+          duration: 1200,
+          easing: CALM_EASING,
+          useNativeDriver: true,
+        }),
+        Animated.timing(scale, {
+          toValue: 1.008,
+          duration: 1400,
+          easing: CALM_EASING,
+          useNativeDriver: true,
+        }),
       ]).start();
 
       startWatchScan();

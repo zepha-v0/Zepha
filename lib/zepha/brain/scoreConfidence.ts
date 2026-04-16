@@ -19,8 +19,8 @@ export function scoreZephaConfidence(
   memory: ZephaMemory
 ): ZephaConfidence {
   let sleep = 0;
-  let idle = 0.42;
-  let curious = 0.25;
+  let idle = 0.4;
+  let curious = 0.31;
   let guard = 0;
   let watch = 0;
   let offer = 0;
@@ -33,75 +33,98 @@ export function scoreZephaConfidence(
   }
 
   if (context.sleepEligible) sleep += 0.5;
-  if (context.activityLevel === 'still') idle += 0.22;
 
-  if (context.activityLevel === 'light') {
-    idle += 0.1;
-    curious += 0.34;
+  if (context.activityLevel === 'still') {
+    idle += 0.2;
+    curious += 0.07;
   }
 
-  if (context.activityLevel === 'active') curious += 0.32;
+  if (context.activityLevel === 'light') {
+    idle += 0.08;
+    curious += 0.36;
+  }
+
+  if (context.activityLevel === 'active') {
+    curious += 0.34;
+    watch += 0.05;
+  }
 
   if (context.inactivityMs > CURIOUS_TRIGGER_MS && context.inactivityMs < LONG_INACTIVITY_MS) {
-    curious += 0.22;
+    curious += 0.26;
   }
 
   if (signals.firstRunLearningMode) {
-    curious -= 0.08;
-    idle += 0.08;
+    curious -= 0.04;
+    idle += 0.05;
   }
 
   if (context.sustainedEngagement) {
-    curious += 0.12;
-    watch += 0.12;
+    curious += 0.14;
+    watch += 0.14;
   }
 
   if (context.workIntentActive) {
-    guard += 0.22;
-    curious += 0.12;
+    guard += 0.2;
+    curious += 0.1;
     idle -= 0.04;
   }
 
   if (context.guardIntentActive) {
-    guard += 0.18;
-    curious += 0.14;
+    guard += 0.16;
+    curious += 0.1;
+    watch += 0.04;
   }
 
   if (signals.manualUrgency) {
-    guard += 0.22;
+    guard += 0.26;
   }
 
   if (context.offerIntentActive) {
     offer += 0.72;
-    curious += 0.08;
+    curious += 0.12;
     guard -= 0.08;
   }
 
   if (signals.relevantPrepExists) offer += 0.3;
-  if (context.shouldDecompress) watch += 0.32;
+  if (context.shouldDecompress) {
+    watch += 0.3;
+    curious += 0.08;
+  }
 
   const recentGuardStrength = minutesAgo(signals.now, memory.recentGuardAt, 10);
   const recentWatchStrength = minutesAgo(signals.now, memory.recentWatchAt, 8);
   const recentIdleStrength = minutesAgo(signals.now, memory.recentIdleAt, 18);
+  const recentCuriousStrength = minutesAgo(signals.now, memory.recentCuriousAt, 12);
   const recentWorkIntentStrength = minutesAgo(signals.now, memory.recentWorkIntentAt, 12);
   const recentUrgencyStrength = minutesAgo(signals.now, memory.recentUrgencyAt, 8);
   const recentOfferStrength = minutesAgo(signals.now, memory.recentOfferAt, 10);
 
-  guard += memory.workGuardBias * 0.25;
+  guard += memory.workGuardBias * 0.24;
   idle += memory.calmIdleBias * 0.28;
-  watch += memory.watchCarryBias * 0.26;
+  watch += memory.watchCarryBias * 0.24;
   offer += memory.offerPrepBias * 0.24;
+  curious += recentCuriousStrength * 0.16;
 
   if (context.workIntentActive) guard += recentWorkIntentStrength * 0.12;
   if (context.guardIntentActive) guard += recentUrgencyStrength * 0.14;
-  if (!context.guardIntentActive && recentGuardStrength > 0) watch += recentGuardStrength * 0.24;
-  if (recentWatchStrength > 0 && !context.guardIntentActive) watch += recentWatchStrength * 0.12;
+  if (!context.guardIntentActive && recentGuardStrength > 0) {
+    watch += recentGuardStrength * 0.22;
+    curious += recentGuardStrength * 0.08;
+  }
+  if (recentWatchStrength > 0 && !context.guardIntentActive) {
+    watch += recentWatchStrength * 0.12;
+    curious += recentWatchStrength * 0.07;
+  }
   if (recentIdleStrength > 0 && context.activityLevel === 'still') idle += recentIdleStrength * 0.14;
   if (recentOfferStrength > 0 && context.offerIntentActive) offer += recentOfferStrength * 0.12;
 
   if (memory.guardWins >= 2 && context.workIntentActive) guard += 0.05;
   if (memory.idleWins >= 2 && context.activityLevel === 'still') idle += 0.08;
-  if (memory.watchWins >= 2 && context.shouldDecompress) watch += 0.05;
+  if (memory.watchWins >= 2 && context.shouldDecompress) {
+    watch += 0.05;
+    curious += 0.05;
+  }
+  if (memory.curiousWins >= 2 && !context.guardIntentActive) curious += 0.06;
 
   return {
     sleep: clamp01(sleep),

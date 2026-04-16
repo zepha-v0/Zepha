@@ -83,7 +83,7 @@ export function shouldBridgeIntoGuard(args: {
   }
 
   if (fromVisibleState === STATES.WATCH) {
-    return urgency === 'measured';
+    return urgency !== 'urgent';
   }
 
   if (urgency === 'measured') {
@@ -118,10 +118,7 @@ export function buildVisibleTransitionPlan(args: VisibleTransitionPolicyArgs): V
     if (fromVisibleState === STATES.SLEEP) {
       pushStep('light_wake', STATES.LIGHT_WAKE, 'wake gently');
       pushStep('wake_to_idle', STATES.IDLE, 'descend to the lower edge');
-      if (
-        bridgeThroughCurious ||
-        confidence.guard < PRODUCT_CONFIG.visiblePolicy.urgentWakeGuardBelow
-      ) {
+      if (bridgeThroughCurious || confidence.guard < PRODUCT_CONFIG.visiblePolicy.urgentWakeGuardBelow) {
         pushStep('curious', STATES.CURIOUS, 'read the room before protecting');
       }
       pushStep('guard', STATES.GUARD, 'settle into protection');
@@ -131,7 +128,7 @@ export function buildVisibleTransitionPlan(args: VisibleTransitionPolicyArgs): V
     if (fromVisibleState === STATES.LIGHT_WAKE) {
       pushStep('wake_to_idle', STATES.IDLE, 'finish waking before moving');
       if (bridgeThroughCurious) {
-        pushStep('curious', STATES.CURIOUS, 'acknowledge the moment');
+        pushStep('curious', STATES.CURIOUS, 'acknowledge the moment before committing');
       }
       pushStep('guard', STATES.GUARD, 'arrive steady at guard');
       return { reason: 'light-wake to guard', steps };
@@ -139,7 +136,7 @@ export function buildVisibleTransitionPlan(args: VisibleTransitionPolicyArgs): V
 
     if (fromVisibleState === STATES.WAKE || fromVisibleState === STATES.IDLE) {
       if (bridgeThroughCurious) {
-        pushStep('curious', STATES.CURIOUS, 'recognition beat before guard');
+        pushStep('curious', STATES.CURIOUS, 'take a recognition beat before guard');
       }
       pushStep('guard', STATES.GUARD, 'protect without rushing');
       return { reason: 'idle-to-guard bridge', steps };
@@ -152,6 +149,8 @@ export function buildVisibleTransitionPlan(args: VisibleTransitionPolicyArgs): V
 
     if (fromVisibleState === STATES.WATCH && bridgeThroughCurious) {
       pushStep('curious', STATES.CURIOUS, 're-read the moment before recommitting');
+      pushStep('guard', STATES.GUARD, 'settle back into protection');
+      return { reason: 'watch-to-guard bridge', steps };
     }
     pushStep('guard', STATES.GUARD, 'snap back to protection logic, stay calm visually');
     return { reason: 'direct guard alignment', steps };
